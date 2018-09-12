@@ -1,0 +1,116 @@
+How to completely remove 11.2 and 12.1 Grid Infrastructure, CRS and/or Oracle Restart - IBM: Linux on System z (Doc ID 1413787.1)
+To Bottom
+
+
+
+In this Document
+
+Goal
+
+Solution
+
+
+This document is being delivered to you via Oracle Support's Rapid Visibility (RaV) process and therefore has not been subject to an independent technical review.
+Applies to: 
+Oracle Database - Enterprise Edition - Version 11.2.0.2 to 12.1.0.1 [Release 11.2 to 12.1]
+IBM: Linux on System z
+Goal
+
+How to deconfigure and remove all traces of an 11.2.0.2 (or later) Grid Infrastructure Oracle Home which is running either CRS or Single Instance (Oracle Restart) software, including removal of the central oraInventory and temporary files. 
+
+This will allow successful reinstallation of the same software into the existing Grid Home and oraInventory.
+
+
+IMPORTANT
+==========
+
+Please be aware that you should not follow these steps if you have other Oracle Homes installed and running on the server.  These steps include deletion of the central Inventory and removal of temp files created when oracle is running.
+
+The standalone deinstall tool can also be used to remove GI installations.
+
+In the example below, we have a Grid Home set to /u01/grid
+
+Solution
+To deconfigure CRS (across all nodes of the cluster)
+
+As root, execute 
+
+/u01/grid/crs/install/rootcrs.pl -deconfig  -verbose -force
+
+On the last node of the Grid cluster you should add the –lastnode parameter to the
+rootcrs.pl command.
+
+/u01/grid/crs/install/rootcrs.pl -deconfig  -lastnode -force
+
+To Deconfigure Oracle Restart (SIHA and ASM):
+
+As root, execute:-
+/u01/grid/crs/install/roothas.pl -deconfig -verbose -force
+
+If deconfiguration fails against either CRS or Oracle Restart, please disable GI, reboot the node and try the same command:
+
+As root, execute:-
+crsctl disable has
+
+As root, reboot the node; once the node comes backup, execute above deconfigure command again.
+
+
+Modify /etc/inittab: (CRS and Oracle Restart)
+
+If the Oracle Grid root.sh script has been run on any of the nodes previously, then the
+Linux inittab file should be modified to remove the lines that were added.
+Deconfig should remove this line but it is best to verify.
+
+tail /etc/inittab
+#h1:35:respawn:/etc/init.d/init.ohasd run >/dev/null 2>&1 </dev/null
+init q
+
+Clean up files
+
+The following commands are used to remove all Oracle Grid and database
+software. You can also use the Oracle de-installer to remove the necessary software
+components.
+
+#
+#WARNING - You should verify this script before running this script as this
+#script  will remove everything for all Oracle systems on the Linux system where
+#the script  is run.
+#
+rm -f /etc/init.d/init.ohasd
+#
+rm -f /etc/inittab.crs
+rm -rf /etc/oracle
+#
+# Oracle Bug Note:429214.1
+#
+rm -f /usr/tmp/.oracle/*
+rm -f /tmp/.oracle/*
+rm -f /var/tmp/.oracle/*
+###
+
+WARNING: BE VERY CAREFUL - THIS WILL REMOVE THE ORATAB ENTRIES FOR ALL DATABASES RUNNING ON THIS SERVER AND ALSO THE CENTRAL INVENTORY FOR ANY ORACLE HOMES/GRID HOMES WHICH ARE CURRENTLY INSTALLED ON THIS SERVER.
+
+rm -f /etc/oratab
+rm -rf /var/opt/oracle
+
+
+#
+# Remove Oracle software directories *these may change based on your install en
+#  You need to modify the following to map to your install environment.
+
+rm -rf  </u01/base/*> *********this is $ORACLE_BASE
+rm -rf  </u01/oraInventory> ****this is the central inventory loc pointed to by oraInst.loc
+rm -rf </u01/grid/*> **********this is the Grid Home
+rm -rf </u01/oracle> **********this is the DB Home#
+
+NOTES:
+1) If you wish to reinstall into the same Grid directories, you should ensure the permissions and ownership of the directories are correct.  Usually for Grid Infrastructure the directory ownership will have been changed to root and a subsequent reinstall into the existing directory will fail.
+
+   #chmod 755 /u01/grid 
+   #chown oracle:oinstall /u01/grid (use owner:group of Grid Infrastructure OH installation)
+ 
+2) The rootcrs.pl deconfig removes the cvuqdisk-1.0.9-1.rpm - you will need to reinstall it as root from your <staging area>/clusterware/Disk1/rpm directory:
+    # rpm -ivh cvuqdisk-1.0.9-1.rpm
+ 
+3) You must also zero out the headers for the ocr/voting disks prior to re-installing e.g.
+      dd if=/dev/zero of=/dev/<device name> bs=1M count=100
